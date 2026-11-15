@@ -9,6 +9,7 @@ import { SUPPORTED_LANGUAGES, calculateAge } from "@/lib/child-profiles/constant
 import { UserProfileInput } from "@/lib/types";
 import { Icons } from "@/components/ui/Icons";
 import { LocalStore } from "@/lib/storage";
+import { COUNTRIES, getCountryName } from "@/lib/countries";
 
 export default function ProfilePage() {
   const { user, isSignedIn } = useUser();
@@ -21,6 +22,7 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState("en");
+  const [country, setCountry] = useState("");
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -35,6 +37,7 @@ export default function ProfilePage() {
       setFullName(profile.fullName);
       setDateOfBirth(profile.dateOfBirth);
       setPreferredLanguage(profile.preferredLanguage || "en");
+      setCountry(profile.country || "");
     }
   }, [profile]);
 
@@ -43,8 +46,8 @@ export default function ProfilePage() {
     setSaveError(null);
     setSaveSuccess(null);
 
-    if (!fullName.trim() || !dateOfBirth) {
-      setSaveError("Full name and date of birth are required.");
+    if (!fullName.trim() || !dateOfBirth || !country) {
+      setSaveError("Full name, date of birth and country are required.");
       return;
     }
 
@@ -58,6 +61,7 @@ export default function ProfilePage() {
     const input: UserProfileInput = {
       fullName: fullName.trim(),
       dateOfBirth,
+      country,
       preferredLanguage,
     };
     const result = await saveProfile(input);
@@ -105,7 +109,7 @@ export default function ProfilePage() {
                 </span>
               </div>
               <p className="text-xs text-zinc-400 mt-0.5">
-                {user?.primaryEmailAddress?.emailAddress || "Authenticated Account"} • Age {effectiveAge} • {lang.flag} {lang.name}
+                {user?.primaryEmailAddress?.emailAddress || "Authenticated Account"} • Age {effectiveAge} • {lang.flag} {lang.name}{profile?.country ? ` • ${getCountryName(profile.country)}` : ""}
               </p>
             </div>
           </div>
@@ -158,7 +162,14 @@ export default function ProfilePage() {
               <span className="block text-[11px] font-normal text-zinc-500">Current age: {calculateAge(dateOfBirth)}</span>
             </label>
           </div>
-          <label className="space-y-1.5 text-xs font-semibold text-zinc-300">
+          <label className="block space-y-1.5 text-xs font-semibold text-zinc-300">
+            Country
+            <select value={country} onChange={(e) => setCountry(e.target.value)} required className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white">
+              <option value="">Select your country</option>
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </select>
+          </label>
+          <label className="block space-y-1.5 text-xs font-semibold text-zinc-300">
             Preferred language
             <select value={preferredLanguage} onChange={(e) => setPreferredLanguage(e.target.value)} className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2.5 text-sm text-white">
               {SUPPORTED_LANGUAGES.map((option) => <option key={option.code} value={option.code}>{option.flag} {option.name}</option>)}

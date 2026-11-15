@@ -29,7 +29,6 @@ export default function SignUpPage() {
           path="/sign-up"
           forceRedirectUrl="/onboarding"
           signInForceRedirectUrl="/onboarding"
-          rememberMe={true}
           appearance={{
             elements: {
               rootBox: "w-full",
@@ -51,8 +50,8 @@ export default function SignUpPage() {
             variables: {
               colorPrimary: "#dc2626",
               colorBackground: "#09090b",
-              colorInputBackground: "#18181b",
-              colorInputText: "#f4f4f5",
+              colorInput: "#18181b",
+              colorInputForeground: "#f4f4f5",
             },
           }}
           />

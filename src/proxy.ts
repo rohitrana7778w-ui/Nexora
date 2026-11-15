@@ -1,0 +1,30 @@
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+
+const isPublicRoute = createRouteMatcher([
+  "/welcome",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/__clerk(.*)",
+]);
+
+// This file MUST live at src/proxy.ts because the project uses the src/ folder.
+export const proxy = clerkMiddleware(async (auth, req) => {
+  const { userId } = await auth();
+
+  if (!userId && !isPublicRoute(req)) {
+    const signInUrl = new URL("/sign-in", req.url);
+    signInUrl.searchParams.set(
+      "redirect_url",
+      `${req.nextUrl.pathname}${req.nextUrl.search}`
+    );
+    return NextResponse.redirect(signInUrl);
+  }
+});
+
+export const config = {
+  matcher: [
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    "/(api|trpc)(.*)",
+  ],
+};

@@ -1,24 +1,17 @@
 import type { NextConfig } from "next";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
-  // Fix CodeFrameColorMode enum validation error in SWC
-  // This prevents the boolean `true` from being passed to native bindings
-  // that expect the NapiCodeFrameColorMode enum (Error=0, Warning=1, Info=2)
+  // process.cwd() is the project root when running `next dev` / `next build`.
+  // (The old import.meta.url + __dirname code crashed config loading.)
+  outputFileTracingRoot: process.cwd(),
   experimental: {
-    // Disable instrumentation that triggers the bug
-  },
-  // Ensure proper output file tracing
-  outputFileTracingRoot: __dirname,
-  // Environment variables to suppress the SWC color enum bug
-  env: {
-    NEXT_PRIVATE_TERMINAL_COLUMNS: "0",
+    // Stops the dev-only "Could not validate that a segment has instant navigation"
+    // / "Dropped segment" warnings. Only pages that explicitly export `instant` are checked.
+    instantInsights: {
+      validationLevel: "manual-warning",
+    },
   },
 };
 

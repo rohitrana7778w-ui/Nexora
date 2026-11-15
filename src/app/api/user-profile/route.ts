@@ -2,28 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { UserProfileDb } from "@/lib/user-profile/service";
 import { UserProfileInput } from "@/lib/types";
+import { isValidCountryCode } from "@/lib/countries";
+import { SUPPORTED_LANGUAGES } from "@/lib/child-profiles/constants";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const { userId, getToken } = await auth();
+    const { userId } = await auth();
 
     if (!userId) {
-      return NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     }
 
-    let accessToken: string | null = null;
-    try {
-      accessToken = await getToken({ template: "supabase" });
-    } catch (tokenErr) {
-      console.warn("Could not retrieve Supabase JWT template from Clerk:", tokenErr);
-    }
-    const { profile, error } = await UserProfileDb.getProfile(userId, accessToken || undefined);
+    const { profile, error } = await UserProfileDb.getProfile(userId);
 
-    if (error) {
-      console.warn("User profile fetch notice:", error);
+    // A real DB error must not look like "no profile yet" (that would loop users into onboarding).
+    if (error && !profile) {
+      console.warn("User profile fetch error:", error);
+      return NextResponse.json({ success: false, error }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -40,9 +35,17 @@ export async function GET(request: NextRequest) {
   }
 }
 
+function isRealDate(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [y, m, d] = value.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return null;
+  return date;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { userId, getToken } = await auth();
+    const { userId } = await auth();
 
     if (!userId) {
       return NextResponse.json(
@@ -51,47 +54,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { fullName, dateOfBirth, profilePicture, preferredLanguage } = body;
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ success: false, error: "Invalid request body." }, { status: 400 });
+    }
 
-    // Validation
-    if (!fullName || typeof fullName !== "string" || fullName.trim().length === 0) {
+    const { fullName, dateOfBirth, country, profilePicture, preferredLanguage } = body ?? {};
+
+    const name = typeof fullName === "string" ? fullName.trim().replace(/\s+/g, " ") : "";
+    if (name.length < 2 || name.length > 80) {
       return NextResponse.json(
-        { success: false, error: "Full name is required." },
+        { success: false, error: "Full name must be between 2 and 80 characters." },
         { status: 400 }
       );
     }
 
-    if (!dateOfBirth || isNaN(new Date(dateOfBirth).getTime())) {
+    const dob = typeof dateOfBirth === "string" ? isRealDate(dateOfBirth.trim()) : null;
+    if (!dob) {
       return NextResponse.json(
-        { success: false, error: "A valid date of birth is required." },
+        { success: false, error: "A valid date of birth is required (YYYY-MM-DD)." },
+        { status: 400 }
+      );
+    }
+    if (dob > new Date() || dob.getFullYear() < 1900) {
+      return NextResponse.json(
+        { success: false, error: "Date of birth is not in a valid range." },
         { status: 400 }
       );
     }
 
-    const dob = new Date(dateOfBirth);
-    const today = new Date();
-    if (dob > today) {
-      return NextResponse.json(
-        { success: false, error: "Date of birth cannot be in the future." },
-        { status: 400 }
-      );
+    if (!isValidCountryCode(country)) {
+      return NextResponse.json({ success: false, error: "Please select a valid country." }, { status: 400 });
     }
+
+    const language = SUPPORTED_LANGUAGES.some((l) => l.code === preferredLanguage) ? preferredLanguage : "en";
 
     const input: UserProfileInput = {
-      fullName: fullName.trim(),
-      dateOfBirth,
+      fullName: name,
+      dateOfBirth: dateOfBirth.trim(),
+      country: country.trim().toUpperCase(),
       profilePicture: profilePicture || undefined,
-      preferredLanguage: preferredLanguage || "en",
+      preferredLanguage: language,
     };
 
-    let accessToken: string | null = null;
-    try {
-      accessToken = await getToken({ template: "supabase" });
-    } catch (tokenErr) {
-      console.warn("Could not retrieve Supabase JWT template from Clerk, proceeding with service key / anon fallback:", tokenErr);
-    }
-    const { profile, error } = await UserProfileDb.upsertProfile(userId, input, accessToken || undefined);
+    const { profile, error } = await UserProfileDb.upsertProfile(userId, input);
 
     if (error || !profile) {
       console.error("POST /api/user-profile: Database Error:", error);

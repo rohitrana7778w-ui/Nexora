@@ -17,6 +17,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Opt every page out of Next 16 "instant navigation" validation (dev-only warning).
+// Pages here are client components that read the Clerk session, so they cannot be prerendered.
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "SafeStream — Modern Video Streaming Platform",
   description:

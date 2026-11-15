@@ -62,6 +62,7 @@ export interface UserProfile {
   ageGroup: UserAgeGroup; // "child" (<13) | "teen" (13-17) | "adult" (18+)
   profilePicture?: string;
   preferredLanguage: string;
+  country: string; // ISO 3166-1 alpha-2 code, e.g. "IN"
   isOnboarded: boolean;
   createdAt: string;
   updatedAt?: string;
@@ -70,6 +71,7 @@ export interface UserProfile {
 export interface UserProfileInput {
   fullName: string;
   dateOfBirth: string;
+  country: string; // ISO 3166-1 alpha-2 code
   profilePicture?: string;
   preferredLanguage?: string;
 }
@@ -160,4 +162,3 @@ export interface UpdateChildProfileInput {
   preferredLanguage?: string;
   contentPreferences?: string[];
 }
-

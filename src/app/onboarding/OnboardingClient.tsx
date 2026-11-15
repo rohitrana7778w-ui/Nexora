@@ -8,6 +8,7 @@ import { calculateAge, SUPPORTED_LANGUAGES } from "@/lib/child-profiles/constant
 import { determineUserAgeGroup } from "@/lib/moderation/classifier";
 import { UserAgeGroup, UserProfileInput } from "@/lib/types";
 import { Icons } from "@/components/ui/Icons";
+import { COUNTRIES } from "@/lib/countries";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -20,24 +21,27 @@ export default function OnboardingPage() {
   const [fullName, setFullName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [language, setLanguage] = useState("en");
+  const [country, setCountry] = useState("");
 
   // UI State
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Populate initial values from Clerk or existing profile
+  // Prefill the name from Clerk once, and saved values when a profile exists.
   useEffect(() => {
     if (user) {
-      setFullName(user.fullName || user.firstName || "");
+      setFullName((prev) => prev || user.fullName || user.firstName || "");
     }
+  }, [user]);
+
+  useEffect(() => {
     if (profile) {
       if (profile.fullName) setFullName(profile.fullName);
       if (profile.dateOfBirth) setDateOfBirth(profile.dateOfBirth);
       if (profile.preferredLanguage) setLanguage(profile.preferredLanguage);
-    } else {
-      setDateOfBirth("");
+      if (profile.country) setCountry(profile.country);
     }
-  }, [user, profile]);
+  }, [profile]);
 
   const calculatedAge = calculateAge(dateOfBirth);
   const calculatedAgeGroup: UserAgeGroup = determineUserAgeGroup(calculatedAge);
@@ -58,8 +62,13 @@ export default function OnboardingPage() {
     }
 
     const dob = new Date(dateOfBirth);
-    if (isNaN(dob.getTime()) || dob > new Date()) {
+    if (isNaN(dob.getTime()) || dob > new Date() || dob.getFullYear() < 1900) {
       setError("Please enter a valid date of birth.");
+      return;
+    }
+
+    if (!country) {
+      setError("Please select your country.");
       return;
     }
 
@@ -69,13 +78,16 @@ export default function OnboardingPage() {
       const input: UserProfileInput = {
         fullName: trimmed,
         dateOfBirth,
+        country,
         preferredLanguage: language,
       };
 
       const result = await saveProfile(input);
 
       if (result.success) {
-        setStep(2); // Move to confirmation step
+        // Profile is saved (name, DOB, country). Go straight to the app.
+        router.replace("/");
+        return;
       } else {
         setError(result.error || "Failed to save profile. Please try again.");
       }
@@ -212,6 +224,26 @@ export default function OnboardingPage() {
                   Used for verified age classification. Saved securely in Supabase.
                 </p>
               </div>
+            </div>
+
+            {/* Country */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
+                Country <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-sm text-white focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+              >
+                <option value="" className="bg-zinc-950 text-white">Select your country</option>
+                {COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code} className="bg-zinc-950 text-white">
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Preferred Language */}

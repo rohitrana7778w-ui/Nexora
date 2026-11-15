@@ -39,12 +39,17 @@ function ProfileCompletionGateContent({ children }: { children: React.ReactNode 
       return;
     }
 
-    if (!profile && !isOnboarding && !isPublic) {
+    // Incomplete profiles (missing name / DOB / country) must finish onboarding.
+    const needsOnboarding = !profile || !profile.isOnboarded;
+
+    if (needsOnboarding && !isOnboarding && !isPublic) {
       router.replace("/onboarding");
       return;
     }
 
-    if (profile && isOnboarding) {
+    // Completed profiles never need the onboarding page.
+    // (Onboarding navigates away itself right after saving.)
+    if (!needsOnboarding && isOnboarding) {
       router.replace("/");
     }
   }, [
@@ -69,7 +74,7 @@ function ProfileCompletionGateContent({ children }: { children: React.ReactNode 
     );
   }
 
-  if (isSignedIn && !profile && !isOnboarding && !isPublic) {
+  if (isSignedIn && (!profile || !profile.isOnboarded) && !isOnboarding && !isPublic) {
     return null;
   }
 
